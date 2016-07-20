@@ -1,10 +1,19 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>Title</title>
-</head>
-<body>
+{% extends 'combiner/base.html' %}
 
-</body>
-</html>
+{% block content %}
+
+    <form action="{% url "list" %}" method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+        <p>{{ form.non_field_errors }}</p>
+
+        <p>{{ form.docfile.label_tag }} {{ form.docfile.help_text }}</p>
+
+        <p>
+            {{ form.docfile.errors }}
+            {{ form.docfile }}
+        </p>
+
+        <p><input type="submit" value="Upload"/></p>
+    </form>
+
+{% endblock %}
