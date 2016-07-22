@@ -2,18 +2,26 @@
 
 {% block content %}
 
-    <form action="{% url "list" %}" method="post" enctype="multipart/form-data">
+    <form action="{% url "combiner:upload" %}" method="post" enctype="multipart/form-data">
         {% csrf_token %}
         <p>{{ form.non_field_errors }}</p>
 
-        <p>{{ form.docfile.label_tag }} {{ form.docfile.help_text }}</p>
+        <p>{{ form.csv_file.label_tag }} {{ form.csvfile.help_text }}</p>
 
         <p>
-            {{ form.docfile.errors }}
-            {{ form.docfile }}
+            {{ form.csv_file.errors }}
+            {{ form.csv_file }}
         </p>
 
         <p><input type="submit" value="Upload"/></p>
     </form>
 
+{% endblock %}
+
+{% block table %}
+    {% if csv_data %}
+        {% for datum in csv_data %}
+            {{ datum }}
+        {% endfor %}
+    {% endif %}
 {% endblock %}

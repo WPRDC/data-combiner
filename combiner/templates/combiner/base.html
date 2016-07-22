@@ -10,9 +10,22 @@
     <h1>Data Combiner</h1>
     <h3>come join the data combining party!</h3>
 </div>
-
+<div class="error-report">
+    {% if messages %}
+    <ul class="messages">
+        {% for message in messages %}
+            <li {% if message.tags %} class="{{ message.tags }}" {% endif %}>{{ message }}</li>
+        {% endfor %}
+    </ul>
+    {% endif %}
+</div>
 <div class="main-content" id="main-content">
     {% block content %}
+    {% endblock %}
+</div>
+
+<div>
+    {% block table %}
     {% endblock %}
 </div>
 
