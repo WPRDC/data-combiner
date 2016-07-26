@@ -4,16 +4,15 @@ from django.utils import timezone
 from data_combiner.settings import CKAN_ROOT
 import uuid
 
+POINT = 'PNT'
+POLYGON = 'PLY'
+GEO_CHOICES = ((POINT, 'Point'), (POLYGON, 'Polygon'))
 
 def get_expiration():
     return timezone.now() + timezone.timedelta(minutes=20)
 
 
 class InputDocument(models.Model):
-    POINT = 'PNT'
-    POLYGON = 'PLY'
-    GEO_CHOICES = ((POINT, 'Point'),(POLYGON, 'Polygon'))
-
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     file = models.FileField(upload_to='uploads/%Y/%m/%d')
     headings = models.CharField(max_length=512)
@@ -42,13 +41,24 @@ class CKANInstance(models.Model):
 
 
 class CKANResource(models.Model):
-    ckan_instance = models.ForeignKey(CKANInstance, on_delete=models.CASCADE)
     name = models.CharField(max_length=200)
+    ckan_instance = models.ForeignKey(CKANInstance, on_delete=models.CASCADE)
     resource_id = models.UUIDField('resource id', default=None)
     added_date = models.DateTimeField('date added')
+    geo_type = models.CharField(max_length=4, choices=GEO_CHOICES, default=POINT)
 
     def __str__(self):
         return self.name
 
     class Meta():
         verbose_name = 'CKAN Resource'
+
+class CKANField(models.Model):
+    name = models.CharField(max_length=200)
+    ckan_resource = models.ForeignKey(CKANResource, on_delete=models.CASCADE)
+
+    radius = models.FloatField(default=0)
+
+
+    def __str__(self):
+        return self.name

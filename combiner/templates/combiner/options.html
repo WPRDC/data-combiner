@@ -1,17 +1,45 @@
 {% extends 'combiner/base.html' %}
 
 {% block content %}
-<table>
-    {% for row in table_data %}
-    <tr>
-        {% for cell in row %}
-            {% if forloop.parentloop.counter0 == 0 %}
-                <th> {{ cell }} </th>
-            {% else %}
-                <td> {{ cell }} </td>
-            {% endif %}
+    <div class="sub-title">
+        <h3>Options</h3>
+    </div>
+    <div>
+        {% if file_name %}
+            <p><span>Uploaded File: </span>{{ file_name }}</p>
+        {% endif %}
+    </div>
+    <div>
+        <h3>Connect with WPRDC Dataset</h3>
+        <form action="{% url "combiner:options" %}" method="post" enctype="multipart/form-data">
+            {% csrf_token %}
+            <p>{{ form.non_field_errors }}</p>
+
+            <p>{{ form.dataset.label_tag }} {{ form.dataset.help_text }}</p>
+
+            <p>
+                {{ form.dataset.errors }}
+                {{ form.dataset }}
+            </p>
+
+            <p><input type="submit" value="Upload"/></p>
+        </form>
+    </div>
+
+{% endblock %}
+
+{% block table %}
+    <table>
+        {% for row in table_data %}
+            <tr>
+                {% for cell in row %}
+                    {% if forloop.parentloop.counter0 == 0 %}
+                        <th> {{ cell }} </th>
+                    {% else %}
+                        <td> {{ cell }} </td>
+                    {% endif %}
+                {% endfor %}
+            </tr>
         {% endfor %}
-    </tr>
-    {% endfor %}
-</table>
+    </table>
 {% endblock %}

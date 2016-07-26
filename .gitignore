@@ -93,3 +93,5 @@ ENV/
 /.idea
 
 /polls
+
+db.sqlite3

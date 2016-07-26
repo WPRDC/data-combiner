@@ -1,5 +1,6 @@
 from wsgiref.util import FileWrapper
 
+import os
 import io
 import csv
 
@@ -13,7 +14,7 @@ from django.contrib import messages
 from data_combiner import settings
 
 from .models import InputDocument
-from .forms import DocumentForm
+from .forms import DocumentForm, CKANDatasetForm
 
 
 def parse_csv(file, encoding='utf-8'):
@@ -79,14 +80,25 @@ def options(request):
     try:
         file_id = request.session['file_id']
         dl_doc = InputDocument.objects.get(pk=file_id)
+        file_name = os.path.split(dl_doc.file.path)[1]
     except:
         messages.error(request, 'Error Uploading File')
         return HttpResponseRedirect(reverse("combiner:index"))
 
     data = get_csv_data(dl_doc.file.path, 10)
 
+    form = CKANDatasetForm()
+    if request.method == "POST":
+        form = CKANDatasetForm(request.POST)
+        if form.is_valid():
+            return HttpResponseRedirect(reverse("combiner:options"))
+
+    errors = form.errors or None
+
     return render(
         request,
         'combiner/options.html',
-        {'table_data': data}
+        {'form': form,
+         'table_data': data,
+         'file_name': file_name}
     )
