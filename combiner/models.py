@@ -8,6 +8,16 @@ POINT = 'PNT'
 POLYGON = 'PLY'
 GEO_CHOICES = ((POINT, 'Point'), (POLYGON, 'Polygon'))
 
+# Stat Choices
+COUNT = ('COUNT', 'Count')
+MEDIAN = ('MEDIAN', 'Median')
+MEAN = ('MEAN', 'Mean')
+MODE = ('MODE', 'Mode')
+
+INT_CHOICES = (COUNT, MEDIAN, MEAN, MODE)
+STRING_CHOICES = (COUNT, MODE)
+
+
 def get_expiration():
     return timezone.now() + timezone.timedelta(minutes=20)
 
@@ -53,12 +63,19 @@ class CKANResource(models.Model):
     class Meta():
         verbose_name = 'CKAN Resource'
 
+
 class CKANField(models.Model):
     name = models.CharField(max_length=200)
     ckan_resource = models.ForeignKey(CKANResource, on_delete=models.CASCADE)
 
     radius = models.FloatField(default=0)
 
-
     def __str__(self):
         return self.name
+
+
+class CKANIntField(CKANField):
+    stat = models.CharField(max_length=20, choices=INT_CHOICES, default=COUNT)
+
+class CKANStringField(CKANField):
+    stat = models.CharField(max_length=20, choices=STRING_CHOICES, default=COUNT)
