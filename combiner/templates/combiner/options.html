@@ -6,23 +6,23 @@
     </div>
     <div>
         {% if file_name %}
-            <p><span>Uploaded File: </span>{{ file_name }}</p>
+            <p><span><b>Uploaded File: </b></span>{{ file_name }}</p>
         {% endif %}
     </div>
     <div>
         <h3>Connect with WPRDC Dataset</h3>
-        <form action="{% url "combiner:options" %}" method="post" enctype="multipart/form-data">
+        <form action="{% url "combiner:join" %}" method="post" enctype="multipart/form-data">
             {% csrf_token %}
             <p>{{ form.non_field_errors }}</p>
 
-            <p>{{ form.dataset.label_tag }} {{ form.dataset.help_text }}</p>
+            <p>{{ form.int_field.label_tag }} {{ form.int_field.help_text }}</p>
 
             <p>
-                {{ form.dataset.errors }}
-                {{ form.dataset }}
+                {{ form.int_field.errors }}
+                {{ form.int_field }}
             </p>
 
-            <p><input type="submit" value="Upload"/></p>
+            <p><input type="submit" value="Merge Data"/></p>
         </form>
     </div>
 

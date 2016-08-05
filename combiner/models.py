@@ -55,6 +55,8 @@ class CKANResource(models.Model):
     ckan_instance = models.ForeignKey(CKANInstance, on_delete=models.CASCADE)
     resource_id = models.UUIDField('resource id', default=None)
     added_date = models.DateTimeField('date added')
+    lat_heading = models.CharField(max_length=30)
+    lon_heading = models.CharField(max_length=30)
     geo_type = models.CharField(max_length=4, choices=GEO_CHOICES, default=POINT)
 
     def __str__(self):
@@ -66,6 +68,7 @@ class CKANResource(models.Model):
 
 class CKANField(models.Model):
     name = models.CharField(max_length=200)
+    heading = models.CharField(max_length=30)
     ckan_resource = models.ForeignKey(CKANResource, on_delete=models.CASCADE)
 
     radius = models.FloatField(default=0)
@@ -73,9 +76,20 @@ class CKANField(models.Model):
     def __str__(self):
         return self.name
 
+    class Meta():
+        abstract = True
+        verbose_name = 'CKAN Field'
 
 class CKANIntField(CKANField):
     stat = models.CharField(max_length=20, choices=INT_CHOICES, default=COUNT)
 
+    class Meta():
+        verbose_name = 'CKAN Integer Field'
+
+
 class CKANStringField(CKANField):
     stat = models.CharField(max_length=20, choices=STRING_CHOICES, default=COUNT)
+
+    class Meta():
+        verbose_name = 'CKAN String Field'
+

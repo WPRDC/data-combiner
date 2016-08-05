@@ -95,3 +95,5 @@ ENV/
 /polls
 
 db.sqlite3
+
+/binaries

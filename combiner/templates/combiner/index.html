@@ -16,6 +16,17 @@
         <p><input type="submit" value="Submit"/></p>
     </form>
 
+    <form>
+        <p>{{ field_form.non_field_errors }}</p>
+
+        <p>{{ field_form.field.label_tag }} {{ field_form.field.help_text }}</p>
+
+        <p>
+            {{ field_form.field.errors }}
+            {{ field_form.field }}
+        </p>
+    </form>
+
 {% endblock %}
 
 {% block table %}

@@ -4,6 +4,13 @@ import os
 import io
 import csv
 
+import shapely
+from shapely.geometry.point import Point
+
+WGS84 = "EPSG:4326"
+PA_SP_SOUTH = "EPSG:102729"
+
+
 from django.shortcuts import render
 from django.template import RequestContext
 from django.http import HttpResponseRedirect, HttpResponse
@@ -14,7 +21,7 @@ from django.contrib import messages
 from data_combiner import settings
 
 from .models import InputDocument
-from .forms import DocumentForm, CKANDatasetForm
+from .forms import DocumentForm, CKANDatasetForm, CKANFieldForm
 
 
 def parse_csv(file, encoding='utf-8'):
@@ -77,6 +84,7 @@ def upload(request):
 
 
 def options(request):
+    # get file information from session
     try:
         file_id = request.session['file_id']
         dl_doc = InputDocument.objects.get(pk=file_id)
@@ -85,13 +93,15 @@ def options(request):
         messages.error(request, 'Error Uploading File')
         return HttpResponseRedirect(reverse("combiner:index"))
 
-    data = get_csv_data(dl_doc.file.path, 10)
+    # get first 10 rows from uploaded file
+    data = None  # get_csv_data(dl_doc.file.path, 10)
 
-    form = CKANDatasetForm()
+    # Generate and handle form
+    form = CKANFieldForm()
     if request.method == "POST":
         form = CKANDatasetForm(request.POST)
         if form.is_valid():
-            return HttpResponseRedirect(reverse("combiner:options"))
+            return HttpResponseRedirect(reverse("combiner:results"))
 
     errors = form.errors or None
 
@@ -102,3 +112,28 @@ def options(request):
          'table_data': data,
          'file_name': file_name}
     )
+
+
+def join_data(request):
+    if request.method == "POST":
+        print("HEY")
+        pass
+    else:
+        messages.error(request, 'Error Merging Files')
+
+    return HttpResponseRedirect(reverse("combiner:options"))
+
+
+def results(request):
+    return render(
+        request,
+        'combiner/results.html',
+        {
+
+        }
+    )
+
+
+def ConcentricCircle(x, y, radius, projection=PA_SP_SOUTH):
+    p = Point(x, y)
+    circle = p.buffer(1)
