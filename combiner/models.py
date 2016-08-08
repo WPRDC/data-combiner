@@ -8,14 +8,14 @@ POINT = 'PNT'
 POLYGON = 'PLY'
 GEO_CHOICES = ((POINT, 'Point'), (POLYGON, 'Polygon'))
 
-# Stat Choices
-COUNT = ('COUNT', 'Count')
-MEDIAN = ('MEDIAN', 'Median')
-MEAN = ('MEAN', 'Mean')
-MODE = ('MODE', 'Mode')
+# Type Choices
+INTEGER = 'INT'
+STRING = 'STR'
+FLOAT = 'FLT'
 
-INT_CHOICES = (COUNT, MEDIAN, MEAN, MODE)
-STRING_CHOICES = (COUNT, MODE)
+TYPE_CHOICES = ((INTEGER, 'Integer'),
+                (STRING, 'String'),
+                (FLOAT, 'Float'))
 
 
 def get_expiration():
@@ -70,26 +70,10 @@ class CKANField(models.Model):
     name = models.CharField(max_length=200)
     heading = models.CharField(max_length=30)
     ckan_resource = models.ForeignKey(CKANResource, on_delete=models.CASCADE)
-
-    radius = models.FloatField(default=0)
+    data_type = models.CharField(max_length=10, choices=TYPE_CHOICES, default=INTEGER)
 
     def __str__(self):
         return self.name
 
     class Meta():
-        abstract = True
         verbose_name = 'CKAN Field'
-
-class CKANIntField(CKANField):
-    stat = models.CharField(max_length=20, choices=INT_CHOICES, default=COUNT)
-
-    class Meta():
-        verbose_name = 'CKAN Integer Field'
-
-
-class CKANStringField(CKANField):
-    stat = models.CharField(max_length=20, choices=STRING_CHOICES, default=COUNT)
-
-    class Meta():
-        verbose_name = 'CKAN String Field'
-

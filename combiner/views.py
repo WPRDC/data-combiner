@@ -6,10 +6,15 @@ import csv
 
 import shapely
 from shapely.geometry.point import Point
+import pyproj
+import requests
 
-WGS84 = "EPSG:4326"
-PA_SP_SOUTH = "EPSG:102729"
+# Projections
+WGS84 = '+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs'
+PA_SP_SOUTH = '+proj=lcc +lat_1=39.93333333333333 +lat_2=40.96666666666667 +lat_0=39.33333333333334 +lon_0=-77.75 +x_0=600000.0000000001 +y_0=0 +ellps=GRS80 +datum=NAD83 +to_meter=0.3048006096012192 +no_defs'
 
+# Conversions
+MILES = 5280
 
 from django.shortcuts import render
 from django.template import RequestContext
@@ -20,7 +25,7 @@ from django.contrib import messages
 
 from data_combiner import settings
 
-from .models import InputDocument
+from .models import InputDocument, CKANField, CKANResource, CKANInstance
 from .forms import DocumentForm, CKANDatasetForm, CKANFieldForm
 
 
@@ -94,7 +99,7 @@ def options(request):
         return HttpResponseRedirect(reverse("combiner:index"))
 
     # get first 10 rows from uploaded file
-    data = None  # get_csv_data(dl_doc.file.path, 10)
+    data = get_csv_data(dl_doc.file.path, 10)
 
     # Generate and handle form
     form = CKANFieldForm()
@@ -134,6 +139,49 @@ def results(request):
     )
 
 
-def ConcentricCircle(x, y, radius, projection=PA_SP_SOUTH):
+def join_points(x1, y1, x2, y2, radius, origin1=WGS84, origin2=WGS84, destination=PA_SP_SOUTH):
+    '''
+    :param x: x coordinate or longitude
+    :param y: y coordiante or latitude
+    :param radius: radius in miles
+    :param projection:
+    :return:
+    '''
+    # project input x1,y1 to PA state plane
+    x, y = pyproj.transform(pyproj.Proj(origin1),
+                            pyproj.Proj(destination, preserve_units=True),
+                            x1, y1)
+    # get circle from first input
     p = Point(x, y)
-    circle = p.buffer(1)
+    circle = p.buffer(radius * MILES)
+
+    # project x2, y2 to same plane
+    x, y = pyproj.transform(pyproj.Proj(origin2),
+                            pyproj.Proj(destination, preserve_units=True),
+                            x2, y2)
+    p = Point(x,y)
+    return circle.contains(p)
+
+
+def CombineData(input_file_id, ckan_field_id, radius, input_projection=WGS84):
+    input_file = InputDocument.objects.get(pk=input_file_id)
+    ckan_field = CKANField.objects.get(pk=ckan_field_id)
+    ckan_resource = CKANResource.objects.get(pk=ckan_field.ckan_resource_id)
+
+    ckan_data = get_ckan_data(ckan_field)
+
+    with open(input_file.file.path) as f:
+        dr = csv.DictReader(f)
+        for row in dr:
+            x1, y1 = row[input_file.x_field], row[input_file.y_field]
+            for datum in cloud_data:
+                x2, y2 = row[ckan_resource.lon_heading], row[ckan_resource.lat_heading]
+
+def get_ckan_data(ckan_field):
+    ckan_resource = ckan_field.ckan_resource
+    ckan_instance = ckan_resource.ckan_instance
+
+
+def get_ckan_info(ckan_field):
+    ckan_resource = ckan_field.ckan_resource
+    ckan_instance = ckan_resource.ckan_instance
