@@ -28,7 +28,8 @@ class InputDocument(models.Model):
     headings = models.CharField(max_length=512)
     rows = models.IntegerField()
     expires = models.DateTimeField(default=get_expiration)
-    geo_field = models.CharField(max_length=50)
+    x_field = models.CharField(max_length=50)
+    y_field = models.CharField(max_length=50)
     geo_type = models.CharField(max_length=4, choices=GEO_CHOICES, default=POINT)
 
     def __str__(self):

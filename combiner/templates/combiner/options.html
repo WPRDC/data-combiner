@@ -15,12 +15,16 @@
             {% csrf_token %}
             <p>{{ form.non_field_errors }}</p>
 
-            <p>{{ form.int_field.label_tag }} {{ form.int_field.help_text }}</p>
+            <p>{{ form.field.label_tag }} {{ form.field.help_text }}</p>
 
             <p>
-                {{ form.int_field.errors }}
-                {{ form.int_field }}
+                {{ form.field.errors }}
+                {{ form.field }}
             </p>
+
+            <p>{{ form.radius.label_tage }} {{ form.radius.help_text }}</p>
+            <p> {{ form.radius.errors }}</p>
+            <p> {{ form.radius }}</p>
 
             <p><input type="submit" value="Merge Data"/></p>
         </form>

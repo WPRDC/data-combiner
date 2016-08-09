@@ -1,10 +1,18 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>Title</title>
-</head>
-<body>
 
-</body>
-</html>
+
+
+{% block table %}
+    <table>
+        {% for row in table_data %}
+            <tr>
+                {% for cell in row %}
+                    {% if forloop.parentloop.counter0 == 0 %}
+                        <th> {{ cell }} </th>
+                    {% else %}
+                        <td> {{ cell }} </td>
+                    {% endif %}
+                {% endfor %}
+            </tr>
+        {% endfor %}
+    </table>
+{% endblock %}

@@ -3,11 +3,12 @@ from wsgiref.util import FileWrapper
 import os
 import io
 import csv
+import json
+import requests
 
 import shapely
 from shapely.geometry.point import Point
 import pyproj
-import requests
 
 # Projections
 WGS84 = '+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs'
@@ -26,10 +27,10 @@ from django.contrib import messages
 from data_combiner import settings
 
 from .models import InputDocument, CKANField, CKANResource, CKANInstance
-from .forms import DocumentForm, CKANDatasetForm, CKANFieldForm
+from .forms import DocumentForm, CombinationForm
 
 
-def parse_csv(file, encoding='utf-8'):
+def parse_csv(file, x_heading, y_heading, encoding='utf-8'):
     _file = io.StringIO(file.read().decode(encoding))
     try:
         dr = csv.DictReader(_file)
@@ -39,12 +40,90 @@ def parse_csv(file, encoding='utf-8'):
 
         newdoc = InputDocument(file=file,
                                headings=",".join(dr.fieldnames),
+                               x_field=x_heading,
+                               y_field=y_heading,
                                rows=rows)
         newdoc.save()
         return newdoc.id
 
     except csv.Error:
         return False
+
+
+def get_ckan_info(ckan_field):
+    ckan_resource = ckan_field.ckan_resource
+    ckan_instance = ckan_resource.ckan_instance
+    return ckan_resource, ckan_instance
+
+
+def get_ckan_data(ckan_field):
+    ckan_resource, ckan_instance = get_ckan_info(ckan_field)
+
+    url = ckan_instance.url + "/api/action/datastore_search"
+    params = {'resource_id': ckan_resource.resource_id}
+
+    response = requests.request("GET", url, params=params)
+
+    return (json.loads(response.text)['result']['records'])
+
+
+def apply_measure(rows, measure):
+    return measure(rows)
+
+
+def count(items):
+    return len(items)
+
+
+def join_points(x1, y1, x2, y2, radius, origin1=WGS84, origin2=WGS84, destination=PA_SP_SOUTH):
+    '''
+    :param x: x coordinate or longitude
+    :param y: y coordiante or latitude
+    :param radius: radius in miles
+    :param projection:
+    :return:
+    '''
+    # project input x1,y1 to PA state plane
+    try:
+        x, y = pyproj.transform(pyproj.Proj(origin1),
+                                pyproj.Proj(destination, preserve_units=True),
+                                x1, y1)
+        # get circle from first input
+        p = Point(x, y)
+        circle = p.buffer(radius * MILES)
+
+        # project x2, y2 to same plane
+        x, y = pyproj.transform(pyproj.Proj(origin2),
+                                pyproj.Proj(destination, preserve_units=True),
+                                x2, y2)
+        p = Point(x, y)
+        return circle.contains(p)
+    except:
+        return False
+
+
+def combine_data(input_file_id, ckan_field_id, radius, measure, input_projection=WGS84):
+    input_file = InputDocument.objects.get(pk=input_file_id)
+    ckan_field = CKANField.objects.get(pk=ckan_field_id)
+    ckan_resource, ckan_instance = get_ckan_info(ckan_field)
+
+    ckan_data = get_ckan_data(ckan_field)
+
+    result = []
+    with open(input_file.file.path) as f:
+        dr = csv.DictReader(f)
+        for row in dr:
+            matched_pts = []
+            x1, y1 = row[input_file.x_field], row[input_file.y_field]
+            for datum in ckan_data:
+                x2, y2 = datum[ckan_resource.lon_heading], row[ckan_resource.lat_heading]
+                if join_points(x1, y1, x2, y2, 5):
+                    matched_pts.append(datum)
+            row["added_" + ckan_field.name] = apply_measure(matched_pts, measure)
+            result.append(row)
+
+    print(result)
+    return (result)
 
 
 def get_csv_data(file_path, row_limit=0):
@@ -79,7 +158,8 @@ def upload(request):
         if form.is_valid():
             # Get metadata from csv file as well as store
             file = request.FILES['csv_file']
-            id = parse_csv(file)
+            x_heading, y_heading = request.POST['x_field'], request.POST['y_field']
+            id = parse_csv(file, x_heading, y_heading)
             if id:
                 request.session['file_id'] = str(id)
                 return HttpResponseRedirect(reverse("combiner:options"))
@@ -102,9 +182,9 @@ def options(request):
     data = get_csv_data(dl_doc.file.path, 10)
 
     # Generate and handle form
-    form = CKANFieldForm()
+    form = CombinationForm()
     if request.method == "POST":
-        form = CKANDatasetForm(request.POST)
+        form = CombinationForm(request.POST)
         if form.is_valid():
             return HttpResponseRedirect(reverse("combiner:results"))
 
@@ -121,8 +201,20 @@ def options(request):
 
 def join_data(request):
     if request.method == "POST":
-        print("HEY")
-        pass
+        form = CombinationForm(request.POST)
+        if form.is_valid():
+            ckan_field_id = request.POST['field']
+            input_file_id = request.session['file_id']
+            radius = request.POST['radius']
+
+            new_table = combine_data(input_file_id, ckan_field_id, radius, count)
+            new_file = os.path.join(settings.MEDIA_ROOT, input_file_id + ".csv")
+            with open(new_file,'w') as f:
+                writer = csv.DictWriter(f, fieldnames=new_table[0].keys())
+                writer.writeheader()
+                writer.writerows(new_table)
+
+            return HttpResponseRedirect(reverse("combiner:results"))
     else:
         messages.error(request, 'Error Merging Files')
 
@@ -130,58 +222,16 @@ def join_data(request):
 
 
 def results(request):
+    input_file_id = request.session['file_id']
+    new_file = os.path.join(settings.MEDIA_ROOT, input_file_id + ".csv")
+    new_table = get_csv_data(new_file, 50)
+
     return render(
         request,
         'combiner/results.html',
         {
-
+            "table_data": new_table
         }
     )
 
 
-def join_points(x1, y1, x2, y2, radius, origin1=WGS84, origin2=WGS84, destination=PA_SP_SOUTH):
-    '''
-    :param x: x coordinate or longitude
-    :param y: y coordiante or latitude
-    :param radius: radius in miles
-    :param projection:
-    :return:
-    '''
-    # project input x1,y1 to PA state plane
-    x, y = pyproj.transform(pyproj.Proj(origin1),
-                            pyproj.Proj(destination, preserve_units=True),
-                            x1, y1)
-    # get circle from first input
-    p = Point(x, y)
-    circle = p.buffer(radius * MILES)
-
-    # project x2, y2 to same plane
-    x, y = pyproj.transform(pyproj.Proj(origin2),
-                            pyproj.Proj(destination, preserve_units=True),
-                            x2, y2)
-    p = Point(x,y)
-    return circle.contains(p)
-
-
-def CombineData(input_file_id, ckan_field_id, radius, input_projection=WGS84):
-    input_file = InputDocument.objects.get(pk=input_file_id)
-    ckan_field = CKANField.objects.get(pk=ckan_field_id)
-    ckan_resource = CKANResource.objects.get(pk=ckan_field.ckan_resource_id)
-
-    ckan_data = get_ckan_data(ckan_field)
-
-    with open(input_file.file.path) as f:
-        dr = csv.DictReader(f)
-        for row in dr:
-            x1, y1 = row[input_file.x_field], row[input_file.y_field]
-            for datum in cloud_data:
-                x2, y2 = row[ckan_resource.lon_heading], row[ckan_resource.lat_heading]
-
-def get_ckan_data(ckan_field):
-    ckan_resource = ckan_field.ckan_resource
-    ckan_instance = ckan_resource.ckan_instance
-
-
-def get_ckan_info(ckan_field):
-    ckan_resource = ckan_field.ckan_resource
-    ckan_instance = ckan_resource.ckan_instance
