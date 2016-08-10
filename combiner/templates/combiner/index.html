@@ -4,17 +4,28 @@
 
     <form action="{% url "combiner:upload" %}" method="post" enctype="multipart/form-data">
         {% csrf_token %}
-        <p>{{ form.non_field_errors }}</p>
+        {{ form.non_field_errors }}
 
-        <p>{{ form.csv_file.label_tag }} {{ form.csvfile.help_text }}</p>
+        {{ form.csvfile.help_text }}
 
-        <p>
-            {{ form.csv_file.errors }}
-            {{ form.csv_file }}
-        </p>
-        {{ form.x_field }}
-        {{ form.y_field }}
-        <p><input type="submit" value="Submit"/></p>
+        {{ form.csv_file.errors }}
+        <span><label class="button" for="{{ form.csv_file.auto_id }}"> {{ form.csv_file.label }}</label></span>
+        <span id="file-label"></span>
+        {{ form.csv_file }}
+        <div class="row">
+            <div class="medium-2 columns">
+                {{ form.x_field.label_tag }}
+                {{ form.x_field }}
+            </div>
+            <div class="medium-2 columns">
+                {{ form.y_field.label_tag }}
+                {{ form.y_field }}
+            </div>
+            <div class="medium-8 columns"></div>
+        </div>
+
+
+        <p><input class="button" type="submit" value="Submit"/></p>
     </form>
 
     <form>
@@ -27,7 +38,12 @@
             {{ field_form.field }}
         </p>
     </form>
-
+    <script>
+        $('#{{ form.csv_file.auto_id }}').on('change', function () {
+            var filename = this.value.replace(/^.*[\\\/]/, '');
+            $('#file-label').text(filename);
+        });
+    </script>
 {% endblock %}
 
 {% block table %}

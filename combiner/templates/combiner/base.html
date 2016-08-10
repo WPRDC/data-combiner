@@ -4,32 +4,37 @@
     <meta charset="UTF-8">
     <title>Data Combiner</title>
     {% load staticfiles %}
-    <link rel="stylesheet" href="{%  static 'combiner/style.css' %}">
+    <link rel="stylesheet" href="{% static 'combiner/style.css' %}">
+    <link rel="stylesheet" href="{% static 'combiner/foundation.min.css' %}">
+    <script src="{% static 'combiner/js/jquery.js' %}"></script>
+    <script src="{% static 'combiner/js/foundation.min.js' %}"></script>
 </head>
 <body>
+<div class="content-container medium-8 large-6 column row">
+    <div class="header">
+        <h1>Data Combiner</h1>
+    </div>
+    <div class="error-report">
+        {% if messages %}
+            <ul class="messages">
+                {% for message in messages %}
+                    <li {% if message.tags %} class="{{ message.tags }}" {% endif %}>{{ message }}</li>
+                {% endfor %}
+            </ul>
+        {% endif %}
+    </div>
+    <div class="main-content" id="main-content">
+        {% block content %}
+        {% endblock %}
+    </div>
 
-<div class="header">
-    <h1>Data Combiner</h1>
-</div>
-<div class="error-report">
-    {% if messages %}
-    <ul class="messages">
-        {% for message in messages %}
-            <li {% if message.tags %} class="{{ message.tags }}" {% endif %}>{{ message }}</li>
-        {% endfor %}
-    </ul>
-    {% endif %}
-</div>
-<div class="main-content" id="main-content">
-    {% block content %}
-    {% endblock %}
+    <div>
+        {% block table %}
+        {% endblock %}
+    </div>
 </div>
 
-<div>
-    {% block table %}
-    {% endblock %}
-</div>
 
-<script src="https://code.jquery.com/jquery-3.1.0.min.js" integrity="sha256-cCueBR6CsyA4/9szpPfrX3s49M9vUU5BgtiJj06wt/s=" crossorigin="anonymous"></script>
+
 </body>
 </html>

@@ -3,9 +3,8 @@ from django import forms
 from .models import InputDocument, CKANResource, CKANField
 
 class DocumentForm(forms.Form):
-    csv_file = forms.FileField(
-        label='Select a file'
-    )
+    csv_file = forms.FileField(label='Select a file',
+                               widget=forms.FileInput(attrs={'class':'show-for-sr'}))
     x_field = forms.CharField()
     y_field = forms.CharField()
 
