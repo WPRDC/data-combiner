@@ -1,35 +1,24 @@
 {% extends 'combiner/base.html' %}
 
 {% block content %}
-    <div class="sub-title">
-        <h3>Options</h3>
-    </div>
-    <div>
-        {% if file_name %}
-            <p><span><b>Uploaded File: </b></span>{{ file_name }}</p>
-        {% endif %}
-    </div>
-    <div>
-        <h3>Connect with WPRDC Dataset</h3>
-        <form action="{% url "combiner:join" %}" method="post" enctype="multipart/form-data">
-            {% csrf_token %}
-            <p>{{ form.non_field_errors }}</p>
-
-            <p>{{ form.field.label_tag }} {{ form.field.help_text }}</p>
-
-            <p>
-                {{ form.field.errors }}
-                {{ form.field }}
-            </p>
-
-            <p>{{ form.radius.label_tage }} {{ form.radius.help_text }}</p>
-            <p> {{ form.radius.errors }}</p>
-            <p> {{ form.radius }}</p>
-
-            <p><input type="submit" value="Merge Data"/></p>
-        </form>
-    </div>
-
+    <form id="myForm" method="post" action="">
+        {% csrf_token %}
+        <table>
+            {% for form in formset %}
+                <tr>
+                    <td>{{ form.field }}</td>
+                    <td>{{ form.radius }}</td>
+                </tr>
+            {% endfor %}
+        </table>
+        {{ formset.management_form }}
+        <input type="submit">
+    </form>
+    <script type="text/javascript">
+        $(function () {
+            $('#myForm tbody tr').formset();
+        })
+    </script>
 {% endblock %}
 
 {% block table %}
@@ -46,4 +35,6 @@
             </tr>
         {% endfor %}
     </table>
+
+
 {% endblock %}

@@ -23,6 +23,7 @@ from django.http import HttpResponseRedirect, HttpResponse
 from django.core.urlresolvers import reverse
 from django.utils.encoding import smart_str
 from django.contrib import messages
+from django.forms import formset_factory
 
 from data_combiner import settings
 
@@ -75,7 +76,7 @@ def count(items):
     return len(items)
 
 
-def join_points(x1, y1, x2, y2, radius, origin1=WGS84, origin2=WGS84, destination=PA_SP_SOUTH):
+def contains(x1, y1, x2, y2, radius, origin1=WGS84, origin2=WGS84, destination=PA_SP_SOUTH):
     '''
     :param x: x coordinate or longitude
     :param y: y coordiante or latitude
@@ -102,26 +103,31 @@ def join_points(x1, y1, x2, y2, radius, origin1=WGS84, origin2=WGS84, destinatio
         return False
 
 
-def combine_data(input_file_id, ckan_field_id, radius, measure, input_projection=WGS84):
+def combine_data(input_file_id, ckan_fields, radii, measure, input_projection=WGS84):
     input_file = InputDocument.objects.get(pk=input_file_id)
-    ckan_field = CKANField.objects.get(pk=ckan_field_id)
-    ckan_resource, ckan_instance = get_ckan_info(ckan_field)
-
-    ckan_data = get_ckan_data(ckan_field)
 
     result = []
     with open(input_file.file.path) as f:
-        dr = csv.DictReader(f)
-        for row in dr:
-            matched_pts = []
-            x1, y1 = row[input_file.x_field], row[input_file.y_field]
-            for datum in ckan_data:
-                x2, y2 = datum[ckan_resource.lon_heading], row[ckan_resource.lat_heading]
-                if join_points(x1, y1, x2, y2, 5):
-                    matched_pts.append(datum)
-            row["added_" + ckan_field.name] = apply_measure(matched_pts, measure)
-            result.append(row)
+        input_rows = list(csv.DictReader(f))
+        for i in range(len(ckan_fields)):
+            ckan_field = ckan_fields[i]
+            ckan_resource, ckan_instance = get_ckan_info(ckan_field)
+            ckan_data = get_ckan_data(ckan_field)
 
+            for row in input_rows:
+                matched_pts = []
+                x1, y1 = row[input_file.x_field], row[input_file.y_field]
+
+                for ckan_row in ckan_data:
+                    x2, y2 = ckan_row[ckan_resource.lon_heading], row[ckan_resource.lat_heading]
+                    if contains(x1, y1, x2, y2, radii[i]):
+                        matched_pts.append(ckan_row)
+
+                row[ckan_field.name + "_" + measure.__name__ + "_" + str(radii[i])] = apply_measure(matched_pts,
+                                                                                                    measure)
+
+            print(input_rows)
+    result = input_rows
     print(result)
     return (result)
 
@@ -182,18 +188,32 @@ def options(request):
     data = get_csv_data(dl_doc.file.path, 10)
 
     # Generate and handle form
-    form = CombinationForm()
+    FieldFormSet = formset_factory(CombinationForm, extra=1, max_num=5)
     if request.method == "POST":
-        form = CombinationForm(request.POST)
-        if form.is_valid():
+        formset = FieldFormSet(request.POST, request.FILES)
+        if formset.is_valid():
+            input_file_id = request.session['file_id']
+            formset_data = formset.cleaned_data
+            ckan_fields, radii = [], []
+            for item in formset_data:
+                ckan_fields.append(item['field'])
+                radii.append(item['radius'])
+
+            new_table = combine_data(input_file_id, ckan_fields, radii, count)
+            new_file = os.path.join(settings.MEDIA_ROOT, input_file_id + ".csv")
+            with open(new_file, 'w') as f:
+                writer = csv.DictWriter(f, fieldnames=new_table[0].keys())
+                writer.writeheader()
+                writer.writerows(new_table)
             return HttpResponseRedirect(reverse("combiner:results"))
 
-    errors = form.errors or None
+    formset = FieldFormSet()
+    errors = formset.errors or None
 
     return render(
         request,
         'combiner/options.html',
-        {'form': form,
+        {'formset': formset,
          'table_data': data,
          'file_name': file_name}
     )
@@ -209,7 +229,7 @@ def join_data(request):
 
             new_table = combine_data(input_file_id, ckan_field_id, radius, count)
             new_file = os.path.join(settings.MEDIA_ROOT, input_file_id + ".csv")
-            with open(new_file,'w') as f:
+            with open(new_file, 'w') as f:
                 writer = csv.DictWriter(f, fieldnames=new_table[0].keys())
                 writer.writeheader()
                 writer.writerows(new_table)
@@ -233,5 +253,3 @@ def results(request):
             "table_data": new_table
         }
     )
-
-
