@@ -3,6 +3,9 @@
 {% block content %}
     <form id="myForm" method="post" action="">
         {% csrf_token %}
+
+        {{ heading_form.x_field }}
+
         <table>
             {% for form in formset %}
                 <tr>

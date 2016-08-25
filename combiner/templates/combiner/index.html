@@ -1,7 +1,7 @@
 {% extends 'combiner/base.html' %}
 
 {% block content %}
-
+    {#  #}
     <form action="{% url "combiner:upload" %}" method="post" enctype="multipart/form-data">
         {% csrf_token %}
         {{ form.non_field_errors }}
@@ -12,18 +12,6 @@
         <span><label class="button" for="{{ form.csv_file.auto_id }}"> {{ form.csv_file.label }}</label></span>
         <span id="file-label"></span>
         {{ form.csv_file }}
-        <div class="row">
-            <div class="medium-2 columns">
-                {{ form.x_field.label_tag }}
-                {{ form.x_field }}
-            </div>
-            <div class="medium-2 columns">
-                {{ form.y_field.label_tag }}
-                {{ form.y_field }}
-            </div>
-            <div class="medium-8 columns"></div>
-        </div>
-
 
         <p><input class="button" type="submit" value="Submit"/></p>
     </form>

@@ -28,10 +28,10 @@ from django.forms import formset_factory
 from data_combiner import settings
 
 from .models import InputDocument, CKANField, CKANResource, CKANInstance
-from .forms import DocumentForm, CombinationForm
+from .forms import DocumentForm, CombinationForm, GeoHeadingForm
 
 
-def parse_csv(file, x_heading, y_heading, encoding='utf-8'):
+def parse_csv(file, encoding='utf-8'):
     _file = io.StringIO(file.read().decode(encoding))
     try:
         dr = csv.DictReader(_file)
@@ -41,8 +41,6 @@ def parse_csv(file, x_heading, y_heading, encoding='utf-8'):
 
         newdoc = InputDocument(file=file,
                                headings=",".join(dr.fieldnames),
-                               x_field=x_heading,
-                               y_field=y_heading,
                                rows=rows)
         newdoc.save()
         return newdoc.id
@@ -119,7 +117,7 @@ def combine_data(input_file_id, ckan_fields, radii, measure, input_projection=WG
                 x1, y1 = row[input_file.x_field], row[input_file.y_field]
 
                 for ckan_row in ckan_data:
-                    x2, y2 = ckan_row[ckan_resource.lon_heading], row[ckan_resource.lat_heading]
+                    x2, y2 = ckan_row[ckan_resource.lon_heading], ckan_row[ckan_resource.lat_heading]
                     if contains(x1, y1, x2, y2, radii[i]):
                         matched_pts.append(ckan_row)
 
@@ -164,8 +162,7 @@ def upload(request):
         if form.is_valid():
             # Get metadata from csv file as well as store
             file = request.FILES['csv_file']
-            x_heading, y_heading = request.POST['x_field'], request.POST['y_field']
-            id = parse_csv(file, x_heading, y_heading)
+            id = parse_csv(file)
             if id:
                 request.session['file_id'] = str(id)
                 return HttpResponseRedirect(reverse("combiner:options"))
@@ -186,8 +183,10 @@ def options(request):
 
     # get first 10 rows from uploaded file
     data = get_csv_data(dl_doc.file.path, 10)
+    headings = tuple(InputDocument.objects.get(pk=file_id).headings.split(','))
+    # Generate and handle forms
+    heading_form = GeoHeadingForm(headings)
 
-    # Generate and handle form
     FieldFormSet = formset_factory(CombinationForm, extra=1, max_num=5)
     if request.method == "POST":
         formset = FieldFormSet(request.POST, request.FILES)
@@ -213,7 +212,8 @@ def options(request):
     return render(
         request,
         'combiner/options.html',
-        {'formset': formset,
+        {'heading_form': heading_form,
+         'formset': formset,
          'table_data': data,
          'file_name': file_name}
     )
