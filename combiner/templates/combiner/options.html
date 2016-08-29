@@ -4,22 +4,39 @@
     <form id="myForm" method="post" action="">
         {% csrf_token %}
 
-        {{ heading_form.x_field }}
+        <div class="row">
+            <p class="meta-label">Select Lat/Lon (x/y) fields: </p>
+            <div class="medium-6 columns">
+                {{ heading_form.x_field.label }}
+                {{ heading_form.x_field }}
+            </div>
+            <div class="medium-6 columns">
+                {{ heading_form.y_field.label }}
+                {{ heading_form.y_field }}
+            </div>
+        </div>
 
-        <table>
-            {% for form in formset %}
-                <tr>
-                    <td>{{ form.field }}</td>
-                    <td>{{ form.radius }}</td>
-                </tr>
-            {% endfor %}
-        </table>
-        {{ formset.management_form }}
-        <input type="submit">
+        <div class="row">
+            <p class="meta-label">Select Lat/Lon (x/y) fields: </p>
+            <table>
+                <tbody>
+                {% for form in formset %}
+                    <tr>
+                        <td>{{ form.field }}</td>
+                        <td>{{ form.radius }}</td>
+                        <td><a class="delete-row" href="javascript:void(0)"><i class="material-icons w3-small">close</i></a></td>
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+            {{ formset.management_form }}
+            <input type="submit">
+        </div>
     </form>
+
     <script type="text/javascript">
         $(function () {
-            $('#myForm tbody tr').formset();
+            $('#myForm tbody tr').formset({'deleteText': ''});
         })
     </script>
 {% endblock %}

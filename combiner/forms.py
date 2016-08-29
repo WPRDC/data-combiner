@@ -21,7 +21,9 @@ class GeoHeadingForm(forms.Form):
     x_field = forms.ChoiceField(choices=[])
     y_field = forms.ChoiceField(choices=[])
 
-    def __init__(self, headings, *args, **kwargs):
+    def __init__(self, *args, **kwargs):
+        headings = kwargs.pop('headings')
         super(GeoHeadingForm, self).__init__(*args, **kwargs)
-        self.fields['x_field'].choices = [headings]
-        self.fields['y_field'].choices = [headings]
+        if headings:
+            self.fields['x_field'].choices = headings
+            self.fields['y_field'].choices = headings

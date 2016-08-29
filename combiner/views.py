@@ -10,13 +10,6 @@ import shapely
 from shapely.geometry.point import Point
 import pyproj
 
-# Projections
-WGS84 = '+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs'
-PA_SP_SOUTH = '+proj=lcc +lat_1=39.93333333333333 +lat_2=40.96666666666667 +lat_0=39.33333333333334 +lon_0=-77.75 +x_0=600000.0000000001 +y_0=0 +ellps=GRS80 +datum=NAD83 +to_meter=0.3048006096012192 +no_defs'
-
-# Conversions
-MILES = 5280
-
 from django.shortcuts import render
 from django.template import RequestContext
 from django.http import HttpResponseRedirect, HttpResponse
@@ -29,6 +22,13 @@ from data_combiner import settings
 
 from .models import InputDocument, CKANField, CKANResource, CKANInstance
 from .forms import DocumentForm, CombinationForm, GeoHeadingForm
+
+# Projections
+WGS84 = '+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs'
+PA_SP_SOUTH = '+proj=lcc +lat_1=39.93333333333333 +lat_2=40.96666666666667 +lat_0=39.33333333333334 +lon_0=-77.75 +x_0=600000.0000000001 +y_0=0 +ellps=GRS80 +datum=NAD83 +to_meter=0.3048006096012192 +no_defs'
+
+# Conversions
+MILES = 5280
 
 
 def parse_csv(file, encoding='utf-8'):
@@ -184,8 +184,9 @@ def options(request):
     # get first 10 rows from uploaded file
     data = get_csv_data(dl_doc.file.path, 10)
     headings = tuple(InputDocument.objects.get(pk=file_id).headings.split(','))
+    headings = list(zip(headings, headings))
     # Generate and handle forms
-    heading_form = GeoHeadingForm(headings)
+    heading_form = GeoHeadingForm(headings=headings)
 
     FieldFormSet = formset_factory(CombinationForm, extra=1, max_num=5)
     if request.method == "POST":
