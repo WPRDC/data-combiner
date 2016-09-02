@@ -24,7 +24,8 @@
                     <tr>
                         <td>{{ form.field }}</td>
                         <td>{{ form.radius }}</td>
-                        <td><a class="delete-row" href="javascript:void(0)"><i class="material-icons w3-small">close</i></a></td>
+                        <td><a class="delete-row" href="javascript:void(0)"><i class="material-icons w3-small">close</i></a>
+                        </td>
                     </tr>
                 {% endfor %}
                 </tbody>
@@ -39,6 +40,15 @@
             $('#myForm tbody tr').formset({'deleteText': ''});
         })
     </script>
+    <script>
+    {% if job_id %}
+        for (var i = 0; i < 10000; i++) {
+            $.get('/poll_state/', {job: "{{ job_id }}"}, function (r) {
+                console.log(r);
+            });
+        }
+    {% endif %}
+</script>
 {% endblock %}
 
 {% block table %}
@@ -58,3 +68,4 @@
 
 
 {% endblock %}
+
