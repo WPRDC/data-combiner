@@ -58,33 +58,47 @@ def options(request):
         messages.error(request, 'Error Uploading File')
         return HttpResponseRedirect(reverse("combiner:index"))
 
+    # Check if job is currently being run
+    # if so, set job_id
     try:
         job_id = request.GET['job']
     except:
         job_id = None
     FieldFormSet = formset_factory(CombinationForm, extra=1, max_num=5)
 
+    # If form has been submitted handle the combining
     if request.method == "POST":
+        # collect POST data from forms
         heading_form = GeoHeadingForm(request.POST, headings=headings)
         formset = FieldFormSet(request.POST)
+
+        # if no errors, combine the data
         if formset.is_valid() and heading_form.is_valid():
+
+            # Get file and raw formset data for later
             input_file_id = request.session['file_id']
             formset_data = formset.cleaned_data
 
+            # Update input files x and y headings
             input_file = InputDocument.objects.get(pk=input_file_id)
             input_file.x_field = request.POST['x_field']
             input_file.y_field = request.POST['y_field']
             input_file.save()
 
+            # Parse fieldset data
             ckan_field_ids, radii = [], []
             for item in formset_data:
                 ckan_field_ids.append(item['field'].id)
                 radii.append(item['radius'])
 
+            # Start celery job to combine the data
             combiner = combine_data.delay(input_file_id, ckan_field_ids, radii, 'len')
+
             return HttpResponseRedirect(reverse("combiner:options") + "?job=" + combiner.id)
 
-    # Build Forms
+    # If forms not submitted, or errors, just display the forms
+
+    # Instantiate Forms
     heading_form = GeoHeadingForm(headings=headings)
     formset = FieldFormSet()
 
@@ -93,6 +107,7 @@ def options(request):
     # get first 10 rows from uploaded file
     data = get_csv_data(dl_doc.file.path, 10)
 
+    # Render forms ready for input
     return render(
         request,
         'combiner/options.html',

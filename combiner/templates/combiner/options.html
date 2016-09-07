@@ -1,5 +1,5 @@
 {% extends 'combiner/base.html' %}
-
+<p id="progress"></p>
 {% block content %}
     <form id="myForm" method="post" action="">
         {% csrf_token %}
@@ -41,12 +41,24 @@
         })
     </script>
     <script>
-    {% if job_id %}
-        for (var i = 0; i < 10000; i++) {
-            $.get('/poll_state/', {job: "{{ job_id }}"}, function (r) {
+    var updateInterval;
+    var progress = 0;
+    function updateProgress (time) {
+        $.get('/combine/poll_state/', {job: "{{ job_id }}"}, function (r) {
+                if (r !== "PENDING") {
+                    progress = JSON.parse(r)['process_percent'];
+                    $('#progress').html("Progress: " + progress + "%");
+                    if (progress == 100) {
+                        clearInterval(updateInterval);
+                    }
+                }
                 console.log(r);
             });
-        }
+    }
+
+
+    {% if job_id %}
+        updateInterval = window.setInterval(updateProgress, 1000);
     {% endif %}
 </script>
 {% endblock %}

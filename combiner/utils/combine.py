@@ -54,17 +54,34 @@ def contains(x1, y1, x2, y2, radius, origin1=WGS84, origin2=WGS84, destination=P
     except:
         return False
 
-def combine_data(input_file_id, ckan_fields, radii, measure, input_projection=WGS84):
+def combine_data(input_file_id, ckan_field_ids, radii, measure, input_projection=WGS84):
+    measure = getattr(builtins, measure)
     input_file = InputDocument.objects.get(pk=input_file_id)
+    field_count = len(ckan_field_ids)
+    row_count = input_file.rows
+
+    total_iterations = field_count * row_count
 
     with open(input_file.file.path) as f:
-        input_rows = list(csv.DictReader(f))
-        for i in range(len(ckan_fields)):
-            ckan_field = CKANField.objects.get(pk = ckan_fields[i])
+        rows = []
+        process_percent = 0
+        tenth = row_count // 10
+
+        n_row = 0
+        for row in csv.DictReader(f):
+            n_row += 1
+            if (n_row % tenth) == 0:
+                process_percent +=10
+                current_task.update_state(state='PROGRESS', meta={'process_percent': process_percent})
+
+
+        for i in range(field_count):
+            ckan_field = CKANField.objects.get(pk=ckan_field_ids[i])
             ckan_resource, ckan_instance = get_ckan_info(ckan_field)
             ckan_data = get_ckan_data(ckan_field)
 
-            for row in input_rows:
+            for j in range(row_count):
+                row = rows[j]
                 matched_pts = []
                 x1, y1 = row[input_file.x_field], row[input_file.y_field]
 
@@ -73,10 +90,6 @@ def combine_data(input_file_id, ckan_fields, radii, measure, input_projection=WG
                     if contains(x1, y1, x2, y2, radii[i]):
                         matched_pts.append(ckan_row)
 
-                row[ckan_field.name + "_" + measure.__name__ + "_" + str(radii[i])] = apply_measure(matched_pts,
-                                                                                                    measure)
+                row[ckan_field.name + "_" + measure.__name__ + "_" + str(radii[i])] = measure(matched_pts)
 
-            print(input_rows)
-    result = input_rows
-    print(result)
-    return (result)
+    return (rows)
