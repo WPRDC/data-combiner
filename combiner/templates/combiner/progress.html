@@ -1,0 +1,29 @@
+{% extends 'combiner/base.html' %}
+
+{% block content %}
+    <p><span>Progress: </span><span id="progress"></span></p>
+    <script>
+        var updateInterval;
+        var progress = 0;
+        function updateProgress(time) {
+            $.get('/combine/poll_state/', {job: "{{ job_id }}"}, function (r) {
+                if (r !== "\"PENDING\"") {
+                    progress = JSON.parse(r)['process_percent'];
+                    $('#progress').html(progress + "%");
+
+                    if (progress == 100) {
+                        clearInterval(updateInterval);
+                        window.location.href = "/combine/results"
+                    }
+                }
+                console.log(r);
+            });
+        }
+
+
+        {% if job_id %}
+            updateInterval = window.setInterval(updateProgress, 1000);
+        {% endif %}
+    </script>
+
+{% endblock %}
