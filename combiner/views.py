@@ -3,7 +3,7 @@ import csv
 import json
 
 from django.shortcuts import render
-from django.http import HttpResponseRedirect, HttpResponse
+from django.http import HttpResponseRedirect, HttpResponse, JsonResponse
 from django.core.urlresolvers import reverse
 from django.contrib import messages
 from django.forms import formset_factory
@@ -16,34 +16,79 @@ from .forms import DocumentForm, CombinationForm, GeoHeadingForm
 from .utils.csv import parse_csv, get_csv_data
 from .tasks import combine_data
 
+from django.views.decorators.csrf import csrf_exempt
+
 
 # from .utils.combine import combine_data
 
 def index(request):
-    form = DocumentForm()  # A empty, unbound form
+    input_form = DocumentForm()  # File upload form
 
     return render(
         request,
         'combiner/index.html',
-        {'form': form}
+        {'input_form': input_form}
     )
 
 
 def upload(request):
+    """
+    Uploads file into media folder, and returns `file_id` and a small sample of the data uploaded.
+
+    URL: /combine/upload/
+
+    :param request: HttpRequest object
+    :return: JsonResponse
+    {
+        status  : success/fail,
+        file_id : internal id for uploaded file,
+        sample  : an array of objects representing a sample of the data,
+        fields  : ordered array of field names
+    }
+    """
     # Handle file upload
     if request.method == 'POST':
         form = DocumentForm(request.POST, request.FILES)
 
         if form.is_valid():
-            # Get metadata from csv file as well as store
+            # Get metadata from csv file as well and store it in /media/
             file = request.FILES['csv_file']
-            id = parse_csv(file)
-            if id:
-                request.session['file_id'] = str(id)
-                return HttpResponseRedirect(reverse("combiner:options"))
+            file_id = parse_csv(file)
+            uploaded_file = InputDocument.objects.get(pk=file_id)
+            if file_id:
+                request.session['file_id'] = str(file_id)
+                sample, fields = get_csv_data(uploaded_file.file.path, 10)
+                return JsonResponse({'status': 'success',
+                                     'file_id': str(file_id),
+                                     'sample': sample,
+                                     'fields': fields}
+                                    )
 
-    messages.warning(request, 'Please upload a file')
-    return HttpResponseRedirect(reverse("combiner:index"))
+    return JsonResponse({'status': 'fail',
+                         'file_id': None,
+                         'sample': None,
+                         'fields': None},
+                        status=400)
+
+
+def update_geo_fields(request):
+    if request.method == 'POST':
+        try:
+            lat, lon = request.POST['lat'], request.POST['lon']
+        except KeyError:
+            # missing parameters
+            return JsonResponse({'error': "missing parameters"}, status=400)
+
+        # TODO: separate this from session
+        file_id = request.session['file_id']
+        doc = InputDocument.objects.get(pk=file_id)
+        doc.x_field = lon
+        doc.y_field = lat
+        doc.save()
+        return JsonResponse({'status': 'successfully update'})
+
+    else:
+        return JsonResponse({'error': 'wrong request type - must be POST'}, status=400)
 
 
 def options(request):
@@ -57,7 +102,6 @@ def options(request):
     except:
         messages.error(request, 'Error Uploading File')
         return HttpResponseRedirect(reverse("combiner:index"))
-
 
     FieldFormSet = formset_factory(CombinationForm, extra=1, max_num=5)
 
@@ -112,6 +156,7 @@ def options(request):
          'file_name': file_name}
     )
 
+
 def progress(request):
     # Check if job is currently being run
     # if so, set job_id
@@ -129,31 +174,7 @@ def progress(request):
     )
 
 
-def poll_state(request):
-    """ A view to report the progress to the user """
-    if request.is_ajax() and 'job' in request.GET:
-        job_id = request.GET['job']
-
-    else:
-        return HttpResponse('No job id given.')
-    request.session['celery_job'] = job_id
-    job = combine_data.AsyncResult(job_id)
-
-
-
-
-    if job.state == "PROGRESS":
-        data = job.result
-    elif job.state == "SUCCESS":
-        data = {'process_percent': 100}
-    else:
-        data = {'process_percent': 1}
-
-    return HttpResponse(json.dumps(data))
-
-
 def results(request):
-
     job = combine_data.AsyncResult(request.session['celery_job'])
     data = job.result
     input_file_id = request.session['file_id']
@@ -164,8 +185,6 @@ def results(request):
         for row in data:
             dw.writerow(row)
 
-
-
     new_table = get_csv_data(new_file, 10)
 
     return render(
@@ -175,3 +194,37 @@ def results(request):
             "table_data": new_table
         }
     )
+
+
+def get_fields(request):
+    if 'resource' in request.GET:
+        resource = request.GET['resource']
+
+    else:
+        return HttpResponse('No resource id given.')
+
+    # Get fields within that resource
+    fields = CKANField.objects.filter(resource_id=resource)
+
+    result = {'fields': fields}
+    return HttpResponse(json.dumps(result))
+
+
+def poll_state(request):
+    """ A view to report the progress to the user """
+    if request.is_ajax() and 'job' in request.GET:
+        job_id = request.GET['job']
+
+    else:
+        return HttpResponse('No job id given.')
+    request.session['celery_job'] = job_id
+    job = combine_data.AsyncResult(job_id)
+
+    if job.state == "PROGRESS":
+        data = job.result
+    elif job.state == "SUCCESS":
+        data = {'process_percent': 100}
+    else:
+        data = {'process_percent': 1}
+
+    return HttpResponse(json.dumps(data))

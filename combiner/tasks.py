@@ -20,9 +20,8 @@ PA_SP_SOUTH = '+proj=lcc +lat_1=39.93333333333333 +lat_2=40.96666666666667 +lat_
 MILES = 5280
 
 
-def update_progress(total, i1, i2):
-    current = i1 * i2
-    process_percent = int((current/total) * 100)
+def update_progress(i, imax, j, jmax, k, kmax, length):
+    process_percent = "{}/{}   {}/{}   {}/{}    [ckan-data length: {}".format(i, imax, j, jmax, k, kmax, length)
 
     current_task.update_state(state='PROGRESS', meta={'process_percent': process_percent})
 
@@ -35,6 +34,7 @@ def combine_data(input_file_id, ckan_field_ids, radii, measure, input_projection
     row_count = input_file.rows
 
     total_iterations = field_count * row_count
+    counter = 0
 
     with open(input_file.file.path) as f:
         rows = []
@@ -52,16 +52,19 @@ def combine_data(input_file_id, ckan_field_ids, radii, measure, input_projection
                 matched_pts = []
                 x1, y1 = row[input_file.x_field], row[input_file.y_field]
 
+                z = 0
+                z_max = len(ckan_data)
                 for ckan_row in ckan_data:
+                    z += 1
                     x2, y2 = ckan_row[ckan_resource.lon_heading], ckan_row[ckan_resource.lat_heading]
                     if contains(x1, y1, x2, y2, radii[i]):
                         matched_pts.append(ckan_row)
 
+                    if not (z % (z_max // 5)):
+                        update_progress(i, field_count, j, row_count, z, z_max, len(ckan_data))
+
+                counter += 1
+
                 row[ckan_field.name + "_" + measure.__name__ + "_" + str(radii[i])] = measure(matched_pts)
 
-                update_progress(total_iterations, i+1, j+2)
-
     return (rows)
-
-
-

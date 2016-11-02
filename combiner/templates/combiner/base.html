@@ -16,7 +16,7 @@
     <script src="{% static 'combiner/js/foundation.min.js' %}"></script>
 </head>
 <body>
-<div class="content-container medium-8 large-6 column row">
+<div class="content-container">
     <div class="header">
         <h1>Data Combiner</h1>
     </div>
@@ -34,7 +34,7 @@
         {% endblock %}
     </div>
 
-    <div>
+    <div id="main-table-block">
         {% block table %}
         {% endblock %}
     </div>

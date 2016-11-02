@@ -1,5 +1,6 @@
 import csv
 import pyproj
+import builtins
 
 from celery import Celery
 
@@ -53,3 +54,46 @@ def contains(x1, y1, x2, y2, radius, origin1=WGS84, origin2=WGS84, destination=P
         return circle.contains(p)
     except:
         return False
+
+
+def combine_data(input_file_id, ckan_field_ids, radii, measure, input_projection=WGS84):
+    measure = getattr(builtins, measure)
+    input_file = InputDocument.objects.get(pk=input_file_id)
+    field_count = len(ckan_field_ids)
+    row_count = input_file.rows
+
+    total_iterations = field_count * row_count
+    counter = 0
+
+    with open(input_file.file.path) as f:
+        rows = []
+
+        for row in csv.DictReader(f):
+            rows.append(row)
+
+        for i in range(field_count):
+            ckan_field = CKANField.objects.get(pk=ckan_field_ids[i])
+            ckan_resource, ckan_instance = get_ckan_info(ckan_field)
+            ckan_data = get_ckan_data(ckan_field)
+
+            for j in range(row_count):
+                row = rows[j]
+                matched_pts = []
+                x1, y1 = row[input_file.x_field], row[input_file.y_field]
+
+                z = 0
+                z_max = len(ckan_data)
+                for ckan_row in ckan_data:
+                    z += 1
+                    x2, y2 = ckan_row[ckan_resource.lon_heading], ckan_row[ckan_resource.lat_heading]
+                    if contains(x1, y1, x2, y2, radii[i]):
+                        matched_pts.append(ckan_row)
+
+                    if not (z % (z_max // 5)):
+                        #update_progress(i, field_count, j, row_count, z, z_max, len(ckan_data))
+                        pass
+
+                counter += 1
+
+                row[ckan_field.name + "_" + measure.__name__ + "_" + str(radii[i])] = measure(matched_pts)
+

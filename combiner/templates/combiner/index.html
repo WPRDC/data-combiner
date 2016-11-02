@@ -1,36 +1,185 @@
 {% extends 'combiner/base.html' %}
-
 {% block content %}
     {#  #}
-    <form action="{% url "combiner:upload" %}" method="post" enctype="multipart/form-data">
-        {% csrf_token %}
-        {{ form.non_field_errors }}
+    <div class="row small-12 columns">
+        <h3 class="text-center">Let's Start Combining!</h3>
+        <hr>
+        {# LEFT SIDE - input document #}
+        <div class="medium-6 columns" id="left-panel">
+            <div class="panel-heading">
+                <h4 class="text-center">Pick a Source Document</h4>
 
-        {{ form.csvfile.help_text }}
+            </div>
+            <form id="file-upload" action="{% url "combiner:upload" %}" method="post" enctype="multipart/form-data">
+                {% csrf_token %}
 
-        {{ form.csv_file.errors }}
-        <span><label class="button" for="{{ form.csv_file.auto_id }}"> {{ form.csv_file.label }}</label></span>
-        <span id="file-label"></span>
-        {{ form.csv_file }}
+                <span><label class="button"
+                             for="{{ input_form.csv_file.auto_id }}"> {{ input_form.csv_file.label }}</label></span>
+                <span id="file-label"></span>
+                {{ input_form.csv_file }}
+                <br>
+                <input class="button text-center" type="submit" value="Submit"/>
+            </form>
 
-        <p><input class="button" type="submit" value="Submit"/></p>
-    </form>
 
-    <form>
-        <p>{{ field_form.non_field_errors }}</p>
+            {# Lat/Lon selection#}
+            <form id="latlon-form" method="post" action="{% url "combiner:update_geo_fields" %}"
+                  enctype="multipart/form-data" style="display: none;">
+                {% csrf_token %}
+                <div class="row">
+                    <h4 class="meta-label text-center">Select Lat/Lon (x/y) fields: </h4>
+                    <div class="medium-6 columns">
+                        <label for="lat-select">Latitude (y)</label>
+                        <select id="lat-select" class='latlon-select' type="text" name="lat" form="latlon-form">
+                            <option>Upload file first</option>
+                        </select>
 
-        <p>{{ field_form.field.label_tag }} {{ field_form.field.help_text }}</p>
+                    </div>
+                    <div class="medium-6 columns">
+                        <label for="lon-select">Longitude (x)</label>
+                        <select id="lon-select" class='latlon-select' type="text" name="lon" form="latlon-form">
+                            <option>Upload file first</option>
+                        </select>
 
-        <p>
-            {{ field_form.field.errors }}
-            {{ field_form.field }}
-        </p>
-    </form>
-    <script>
-        $('#{{ form.csv_file.auto_id }}').on('change', function () {
+                    </div>
+                </div>
+            </form>
+
+            {# Table of sample data#}
+            <div id="input-sample" class="row" style="display: none;">
+                <h4 class="text-center">Sample of Your Data</h4>
+                <div class="table-scroll">
+                    <table id="input-table"></table>
+                </div>
+            </div>
+
+
+        </div>
+
+        {# RIGHT SIDE - data to combine #}
+        <div class="medium-6 columns" id="right-panel">
+            <div class="panel-heading">
+                <h4 class="text-center">Pick Data You Want to Combine with Your Document</h4>
+            </div>
+            <form>
+                <div class="row">
+                    <p class="meta-label">Select Fields to Combine:</p>
+                    <table>
+                        <tbody>
+                        {% for form in formset %}
+                            <tr>
+                                <td>{{ form.field }}</td>
+                                <td>{{ form.radius }}</td>
+                                <td><a class="delete-row" href="javascript:void(0)"><i
+                                        class="material-icons w3-small">close</i></a>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                        </tbody>
+                    </table>
+                    {{ formset.management_form }}
+                    <input type="submit">
+                </div>
+            </form>
+        </div>
+    </div>
+
+
+    <script type="text/javascript">
+        var file_id = '';
+
+        // Display name of file being uploaded.
+        $('#{{ input_form.csv_file.auto_id }}').on('change', function () {
             var filename = this.value.replace(/^.*[\\\/]/, '');
             $('#file-label').text(filename);
         });
+
+        // Use AJAX to upload file
+        function upload(event) {
+            event.preventDefault();
+            var data = new FormData($('#file-upload').get(0));
+            console.log(data);
+            $.ajax({
+                url: $(this).attr('action'),
+                type: $(this).attr('method'),
+                data: data,
+                async: false,
+                cache: false,
+                contentType: false,
+                processData: false,
+                success: function (data) {
+                    console.log(data);
+                    file_id = data['file_id'];
+                    updateLatLonSelects(data['fields']);
+                    displayTable($('#input-table'), data['fields'], data['sample']);
+                }
+            });
+            return false;
+        }
+
+        function updateLatLonSelects(fields) {
+            var $lat = $('#lat-select');
+            var $lon = $('#lon-select');
+            $lat.empty();
+            $lon.empty();
+
+            for (var i = 0; i < fields.length; i++) {
+                field = fields[i];
+                $lat.append($("<option></option>")
+                        .attr("value", field)
+                        .text(field)
+                );
+
+                $lon.append($("<option></option>")
+                        .attr("value", field)
+                        .text(field)
+                );
+            }
+        }
+
+        function displayTable(table, fields, data) {
+            var tbl = '<tr>';
+            for (var f = 0; f < fields.length; f++) {
+                tbl += '<th>' + fields[f] + '</th>';
+            }
+            tbl += "</tr>";
+            for (var i = 0; i < data.length; i++) {
+                tbl += "<tr>";
+                for (var j = 0; j < fields.length; j++) {
+                    field = fields[j];
+                    tbl += "<td>" + data[i][field] + "</td>";
+                }
+                tbl += "</tr>";
+            }
+            table.html(tbl);
+            $('#latlon-form').show();
+            $('#input-sample').show();
+        }
+
+        // Auto submit geo fields on change
+        $('.latlon-select').on('change', function () {
+            var latVal = $('#lat-select').find(':selected').attr('value');
+            var lonVal = $('#lon-select').find(':selected').attr('value');
+            var $form = $('#latlon-form');
+            var geo_data = $('#latlon-form').serialize();
+            console.log(geo_data);
+
+            $.ajax({
+                url: $form.attr('action'),
+                type: $form.attr('method'),
+                data: geo_data,
+                success: function (data) {
+                    console.log(data)
+                }
+
+            });
+        });
+
+        $(function () {
+            $('#file-upload').submit(upload);
+        });
+
+
     </script>
 {% endblock %}
 
