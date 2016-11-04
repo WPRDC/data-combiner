@@ -1,5 +1,6 @@
 from django.db import models
 from django.utils import timezone
+from . import measures
 
 from data_combiner.settings import CKAN_ROOT
 import uuid
@@ -78,3 +79,12 @@ class CKANField(models.Model):
 
     class Meta():
         verbose_name = 'CKAN Field'
+
+class Measure(models.Model):
+    name = models.CharField(max_length=200)
+    function = measures.default_measure
+    def __str__(self):
+        return self.name
+
+    class Meta():
+        verbose_name = 'Measure Function'

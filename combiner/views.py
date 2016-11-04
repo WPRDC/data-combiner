@@ -21,15 +21,43 @@ from django.views.decorators.csrf import csrf_exempt
 
 # from .utils.combine import combine_data
 
+### PAGES ##############################################################################################################
+
 def index(request):
     input_form = DocumentForm()  # File upload form
+    FieldFormset = formset_factory(CombinationForm, extra=1, max_num=5)
+    field_formset = FieldFormset()
 
     return render(
         request,
         'combiner/index.html',
-        {'input_form': input_form}
+        {'input_form': input_form,
+         'field_formset': field_formset}
     )
 
+def results(request):
+    job = combine_data.AsyncResult(request.session['celery_job'])
+    data = job.result
+    input_file_id = request.session['file_id']
+    new_file = os.path.join(settings.MEDIA_ROOT, input_file_id + ".csv")
+    with open(new_file, 'w', newline="\n") as f:
+        dw = csv.DictWriter(f, fieldnames=data[0].keys())
+        dw.writeheader()
+        for row in data:
+            dw.writerow(row)
+
+    new_table = get_csv_data(new_file, 10)
+    table = json.dumps(new_table[0])
+    return render(
+        request,
+        'combiner/results.html',
+        {
+            "table_data": new_table
+        }
+    )
+
+
+### API ENDPOINTS #######################################################################################################
 
 def upload(request):
     """
@@ -85,44 +113,20 @@ def update_geo_fields(request):
         doc.x_field = lon
         doc.y_field = lat
         doc.save()
-        return JsonResponse({'status': 'successfully update'})
+        return JsonResponse({'status': 'successfully update',
+                             'x': lon, 'y': lat})
 
     else:
         return JsonResponse({'error': 'wrong request type - must be POST'}, status=400)
 
-
-def options(request):
-    # get file information from session
-    try:
-        file_id = request.session['file_id']
-        dl_doc = InputDocument.objects.get(pk=file_id)
-        file_name = os.path.split(dl_doc.file.path)[1]
-        headings = tuple(InputDocument.objects.get(pk=file_id).headings.split(','))
-        headings = list(zip(headings, headings))
-    except:
-        messages.error(request, 'Error Uploading File')
-        return HttpResponseRedirect(reverse("combiner:index"))
-
-    FieldFormSet = formset_factory(CombinationForm, extra=1, max_num=5)
-
-    # If form has been submitted handle the combining
+def submit_combination_job(request):
     if request.method == "POST":
-        # collect POST data from forms
-        heading_form = GeoHeadingForm(request.POST, headings=headings)
+        FieldFormSet = formset_factory(CombinationForm, extra=1, max_num=5)
         formset = FieldFormSet(request.POST)
-
-        # if no errors, combine the data
-        if formset.is_valid() and heading_form.is_valid():
-
-            # Get file and raw formset data for later
-            input_file_id = request.session['file_id']
+        if formset.is_valid():
             formset_data = formset.cleaned_data
 
-            # Update input files x and y headings
-            input_file = InputDocument.objects.get(pk=input_file_id)
-            input_file.x_field = request.POST['x_field']
-            input_file.y_field = request.POST['y_field']
-            input_file.save()
+            input_file_id = request.session['file_id']
 
             # Parse fieldset data
             ckan_field_ids, radii = [], []
@@ -132,29 +136,11 @@ def options(request):
 
             # Start celery job to combine the data
             combiner = combine_data.delay(input_file_id, ckan_field_ids, radii, 'len')
+            return JsonResponse({'combiner_id': combiner.id})
 
-            return HttpResponseRedirect(reverse("combiner:progress") + "?job=" + combiner.id)
-
-    # If forms not submitted, or errors, just display the forms
-
-    # Instantiate Forms
-    heading_form = GeoHeadingForm(headings=headings)
-    formset = FieldFormSet()
-
-    errors = formset.errors or None
-
-    # get first 10 rows from uploaded file
-    data = get_csv_data(dl_doc.file.path, 10)
-
-    # Render forms ready for input
-    return render(
-        request,
-        'combiner/options.html',
-        {'heading_form': heading_form,
-         'formset': formset,
-         'table_data': data,
-         'file_name': file_name}
-    )
+        else:
+            print(formset.errors)
+            return JsonResponse({'error': 'invalid formset'}, status=400)
 
 
 def progress(request):
@@ -170,28 +156,6 @@ def progress(request):
         'combiner/progress.html',
         {
             'job_id': job_id
-        }
-    )
-
-
-def results(request):
-    job = combine_data.AsyncResult(request.session['celery_job'])
-    data = job.result
-    input_file_id = request.session['file_id']
-    new_file = os.path.join(settings.MEDIA_ROOT, input_file_id + ".csv")
-    with open(new_file, 'w', newline="\n") as f:
-        dw = csv.DictWriter(f, fieldnames=data[0].keys())
-        dw.writeheader()
-        for row in data:
-            dw.writerow(row)
-
-    new_table = get_csv_data(new_file, 10)
-
-    return render(
-        request,
-        'combiner/results.html',
-        {
-            "table_data": new_table
         }
     )
 

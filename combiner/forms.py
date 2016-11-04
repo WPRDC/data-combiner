@@ -1,6 +1,6 @@
 from django import forms
 
-from .models import InputDocument, CKANResource, CKANField
+from .models import InputDocument, CKANResource, CKANField, Measure
 from django.forms import formset_factory
 
 class DocumentForm(forms.Form):
@@ -15,8 +15,9 @@ class MetadataForm(forms.Form):
 
 
 class CombinationForm(forms.Form):
-    resource = forms.ModelChoiceField(queryset=CKANResource.objects.all().order_by('name'), label='Select a Dataset')
+    #resource = forms.ModelChoiceField(queryset=CKANResource.objects.all().order_by('name'), label='Select a Dataset')
     field = forms.ModelChoiceField(queryset=CKANField.objects.all(), label='Pick a field')
+    measure = forms.ModelChoiceField(queryset=Measure.objects.all(), label='Pick a measure')
     radius = forms.FloatField()
 
 class GeoHeadingForm(forms.Form):

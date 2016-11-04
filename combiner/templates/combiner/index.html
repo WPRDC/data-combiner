@@ -61,24 +61,26 @@
             <div class="panel-heading">
                 <h4 class="text-center">Pick Data You Want to Combine with Your Document</h4>
             </div>
-            <form>
+            <form id="field-form" method="post" action="{% url "combiner:submit_job" %}">
+                {% csrf_token %}
+
                 <div class="row">
-                    <p class="meta-label">Select Fields to Combine:</p>
+                    <p class="meta-label">Select Fields to Combine With: </p>
                     <table>
                         <tbody>
-                        {% for form in formset %}
+                        {% for form in field_formset %}
                             <tr>
                                 <td>{{ form.field }}</td>
                                 <td>{{ form.radius }}</td>
-                                <td><a class="delete-row" href="javascript:void(0)"><i
-                                        class="material-icons w3-small">close</i></a>
+                                <td><a class="delete-row" href="javascript:void(0)"><i class="material-icons w3-small">close</i></a>
                                 </td>
                             </tr>
                         {% endfor %}
                         </tbody>
                     </table>
-                    {{ formset.management_form }}
-                    <input type="submit">
+                    <!--Management -->
+                    {{ field_formset.management_form }}
+                    <input id="combine-submit" class="button" type="submit" value="Combine That Sh*t"/>
                 </div>
             </form>
         </div>
@@ -116,6 +118,7 @@
             });
             return false;
         }
+
 
         function updateLatLonSelects(fields) {
             var $lat = $('#lat-select');
@@ -158,8 +161,6 @@
 
         // Auto submit geo fields on change
         $('.latlon-select').on('change', function () {
-            var latVal = $('#lat-select').find(':selected').attr('value');
-            var lonVal = $('#lon-select').find(':selected').attr('value');
             var $form = $('#latlon-form');
             var geo_data = $('#latlon-form').serialize();
             console.log(geo_data);
@@ -175,8 +176,31 @@
             });
         });
 
+        var combine_id;
+
+        $('#field-form').on('submit', function (event) {
+            event.preventDefault();
+            console.log($(this));
+            var data = $(this).serialize();
+            $.ajax({
+                url: $(this).attr('action'),
+                type: $(this).attr('method'),
+                data: data,
+                success: function (data) {
+                    console.log(data);
+                    combine_id = data['combiner_id'];
+                    location.href = 'progress/?job=' + combine_id;
+                },
+                fail: function(data) {
+                    console.log(data)
+                }
+            });
+            return false;
+        });
+
         $(function () {
             $('#file-upload').submit(upload);
+            $('#field-form').find('tbody tr').formset({'deleteText': ''});
         });
 
 
