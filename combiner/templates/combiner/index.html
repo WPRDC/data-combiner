@@ -4,6 +4,7 @@
     <div class="row small-12 columns">
         <h3 class="text-center">Let's Start Combining!</h3>
         <hr>
+        <p><a data-open="measure-modal">Click me for a modal</a></p>
         {# LEFT SIDE - input document #}
         <div class="medium-6 columns" id="left-panel">
             <div class="panel-heading">
@@ -85,6 +86,83 @@
             </form>
         </div>
     </div>
+
+    <div class="reveal" id="measure-modal" data-reveal>
+        <h1>Add a Measure</h1>
+        <div id="test"></div>
+        <form>
+
+            <label for="select-resource">Data Set</label>
+            <select name="resource" id="select-resource"> </select>
+
+            <label for="select-field">Field</label>
+            <select name="field" id="select-field" style="display: none;"></select>
+
+            <label for="select-measure">Measure</label>
+            <select name="measure" id="select-measure" style="display: none;"></select>
+
+            <div id="measure-settings"></div>
+
+            <label></label>
+
+
+            <button class="close-button" data-close aria-label="Close modal" type="button">
+                <span aria-hidden="true">&times;</span>
+            </button>
+        </form>
+    </div>
+
+    <script>
+
+        function addOptions(selection, data, val, text) {
+            for (var i = 0; i < data.length; i++) {
+                item = data[i];
+                selection.append(
+                        $('<option></option>')
+                                .attr('value', item[val])
+                                .text(item[text])
+                )
+            }
+            selection.show();
+        }
+
+        // Get list of available resources to start
+        //
+        $.get("{% url "combiner:get_resources" %}", function (data) {
+            var resources = data.resources;
+            var $resourceSelect = $('#select-resource');
+            $resourceSelect.append(
+                    $('<option></option>')
+                            .attr('value', 0)
+                            .text("----SELECT A RESOURCE----")
+            );
+            addOptions($resourceSelect, resources, 'pk', 'name');
+        });
+
+        // When resource is selected, get list of fields available for that resource
+        //
+        $('#select-resource').on('change', function () {
+            var resource_id = $(this).val();
+            $.get("{% url "combiner:get_fields" %}", {"resource": resource_id})
+                    .success(function (data) {
+                        if (data.fields.length) {
+                            addOptions($('#select-field'), data.fields, 'pk', 'name');
+                        }
+                    });
+        });
+
+        $('#select-field').on('change', function () {
+            var field_id = $(this).val();
+            $.get("{% url "combiner:get_measures" %}", {"field": field_id})
+                    .success(function (data) {
+                        if (data.fields.length) {
+                            addOptions($('#select-measure'), data.fields, 'pk', 'name');
+                        }
+                    });
+        });
+
+
+    </script>
 
 
     <script type="text/javascript">
@@ -191,7 +269,7 @@
                     combine_id = data['combiner_id'];
                     location.href = 'progress/?job=' + combine_id;
                 },
-                fail: function(data) {
+                fail: function (data) {
                     console.log(data)
                 }
             });

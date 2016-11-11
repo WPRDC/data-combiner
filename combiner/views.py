@@ -10,7 +10,7 @@ from django.forms import formset_factory
 
 from data_combiner import settings
 
-from .models import InputDocument, CKANField, CKANResource, CKANInstance
+from .models import InputDocument, CKANField, CKANResource, CKANInstance, Measure
 from .forms import DocumentForm, CombinationForm, GeoHeadingForm
 
 from .utils.csv import parse_csv, get_csv_data
@@ -34,6 +34,7 @@ def index(request):
         {'input_form': input_form,
          'field_formset': field_formset}
     )
+
 
 def results(request):
     job = combine_data.AsyncResult(request.session['celery_job'])
@@ -119,6 +120,7 @@ def update_geo_fields(request):
     else:
         return JsonResponse({'error': 'wrong request type - must be POST'}, status=400)
 
+
 def submit_combination_job(request):
     if request.method == "POST":
         FieldFormSet = formset_factory(CombinationForm, extra=1, max_num=5)
@@ -160,18 +162,6 @@ def progress(request):
     )
 
 
-def get_fields(request):
-    if 'resource' in request.GET:
-        resource = request.GET['resource']
-
-    else:
-        return HttpResponse('No resource id given.')
-
-    # Get fields within that resource
-    fields = CKANField.objects.filter(resource_id=resource)
-
-    result = {'fields': fields}
-    return HttpResponse(json.dumps(result))
 
 
 def poll_state(request):
@@ -192,3 +182,42 @@ def poll_state(request):
         data = {'process_percent': 1}
 
     return HttpResponse(json.dumps(data))
+
+
+def get_resources(request):
+    resp = []
+    for resource in CKANResource.objects.all():
+        resp.append(
+            {'pk': resource.pk,
+             'name': resource.name}
+        )
+
+    return JsonResponse({'resources': resp, 'count': len(resp)})
+
+def get_fields(request):
+    if 'resource' in request.GET:
+        id = request.GET['resource']
+    else:
+        return HttpResponse('No resource id given.')
+
+    # Get fields within that resource
+    fields = CKANField.objects.filter(ckan_resource_id=id)
+    resp = []
+    for field in fields:
+        resp.append({'pk': field.pk, 'name': field.name})
+    result = {'fields': resp, 'count': len(resp)}
+    return JsonResponse(result)
+
+def get_measures(request):
+    if 'field' in request.GET:
+        id = request.GET['field']
+    else:
+        return JsonResponse({'error': 'invalid request'}, status=400)
+
+    field = CKANField.objects.get(pk=id)
+    datatype = field.data_type
+    measures = Measure.objects.filter(data_type=datatype)
+    resp = []
+    for measure in measures:
+        resp.append({'pk': measure.pk, 'name':measure.name})
+    return JsonResponse({'measures': resp, 'count': len(resp)})
