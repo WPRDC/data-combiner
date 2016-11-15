@@ -216,7 +216,7 @@ def get_measures(request):
 
     field = CKANField.objects.get(pk=id)
     datatype = field.data_type
-    measures = Measure.objects.filter(data_type=datatype)
+    measures = Measure.objects.filter(data_type_contains=datatype)
     resp = []
     for measure in measures:
         resp.append({'pk': measure.pk, 'name':measure.name})

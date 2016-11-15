@@ -18,6 +18,14 @@ TYPE_CHOICES = ((INTEGER, 'Integer'),
                 (STRING, 'String'),
                 (FLOAT, 'Float'))
 
+# Generate list of measures
+fns = []
+measures = dir(measures)
+for m in measures:
+    if m[0] != '_':
+        fns.append((m,m))
+
+FN_CHOICES = tuple(fns)
 
 def get_expiration():
     return timezone.now() + timezone.timedelta(minutes=20)
@@ -82,7 +90,8 @@ class CKANField(models.Model):
 
 class Measure(models.Model):
     name = models.CharField(max_length=200)
-    function = measures.default_measure
+    function = models.CharField(max_length=200, choices=FN_CHOICES)
+    data_type = models.CharField(max_length=30,default=INTEGER)
     def __str__(self):
         return self.name
 
