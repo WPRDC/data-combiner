@@ -9,6 +9,8 @@ from .models import InputDocument, CKANField, CKANInstance, CKANResource
 from .utils.ckan import get_ckan_info, get_ckan_data
 from .utils.combine import contains
 
+from . import measures as Measure
+
 from data_combiner.celery import app
 from celery import current_task
 
@@ -27,8 +29,8 @@ def update_progress(i, imax, j, jmax, k, kmax, length):
 
 
 @app.task
-def combine_data(input_file_id, ckan_field_ids, radii, measure, input_projection=WGS84):
-    measure = getattr(builtins, measure)
+def combine_data(input_file_id, ckan_field_ids, radii, measures, input_projection=WGS84):
+
     input_file = InputDocument.objects.get(pk=input_file_id)
     field_count = len(ckan_field_ids)
     row_count = input_file.rows
@@ -46,6 +48,9 @@ def combine_data(input_file_id, ckan_field_ids, radii, measure, input_projection
             ckan_field = CKANField.objects.get(pk=ckan_field_ids[i])
             ckan_resource, ckan_instance = get_ckan_info(ckan_field)
             ckan_data = get_ckan_data(ckan_field)
+            print(measures)
+            measure = getattr(Measure, measures[i])
+            radius = radii[i]
 
             for j in range(row_count):
                 row = rows[j]
@@ -65,6 +70,6 @@ def combine_data(input_file_id, ckan_field_ids, radii, measure, input_projection
 
                 counter += 1
 
-                row[ckan_field.name + "_" + measure.__name__ + "_" + str(radii[i])] = measure(matched_pts)
+                row[ckan_field.name + "_" + measure.__name__ + "_" + str(radius)] = measure(matched_pts)
 
     return (rows)

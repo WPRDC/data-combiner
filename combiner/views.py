@@ -47,16 +47,18 @@ def results(request):
         for row in data:
             dw.writerow(row)
 
-    new_table = get_csv_data(new_file, 10)
-    table = json.dumps(new_table[0])
+    new_table, headings = get_csv_data(new_file, 10)
+    table = [headings]
+    for row in new_table:
+        table.append([row[h] for h in headings])
+
     return render(
         request,
         'combiner/results.html',
         {
-            "table_data": new_table
+            "table_data": table
         }
     )
-
 
 ### API ENDPOINTS #######################################################################################################
 
@@ -123,26 +125,30 @@ def update_geo_fields(request):
 
 def submit_combination_job(request):
     if request.method == "POST":
-        FieldFormSet = formset_factory(CombinationForm, extra=1, max_num=5)
-        formset = FieldFormSet(request.POST)
-        if formset.is_valid():
-            formset_data = formset.cleaned_data
+        formset_data = []
+        for k,v in request.POST.items():
+            if "measure_val" in k:
+                formset_data.append(v)
 
-            input_file_id = request.session['file_id']
+        input_file_id = request.session['file_id']
 
-            # Parse fieldset data
-            ckan_field_ids, radii = [], []
-            for item in formset_data:
-                ckan_field_ids.append(item['field'].id)
-                radii.append(item['radius'])
+        # Parse fieldset data
+        ckan_field_ids, radii, measures = [], [], []
 
-            # Start celery job to combine the data
-            combiner = combine_data.delay(input_file_id, ckan_field_ids, radii, 'len')
-            return JsonResponse({'combiner_id': combiner.id})
+        for item in formset_data:
+            f_id = int(item.split('-')[1])
+            ckan_field_ids.append(f_id)
+            radii.append(5)
+            m_id = int(item.split('-')[2])
+            measures.append(Measure.objects.get(pk=m_id).function)
 
-        else:
-            print(formset.errors)
-            return JsonResponse({'error': 'invalid formset'}, status=400)
+
+        # Start celery job to combine the data
+        combiner = combine_data(input_file_id, ckan_field_ids, radii, measures)
+        return JsonResponse({'combiner_id': combiner.id})
+
+    else:
+        return JsonResponse({'error': 'invalid'}, status=400)
 
 
 def progress(request):
@@ -216,8 +222,9 @@ def get_measures(request):
 
     field = CKANField.objects.get(pk=id)
     datatype = field.data_type
-    measures = Measure.objects.filter(data_type_contains=datatype)
+    measures = Measure.objects.filter(data_type__contains=datatype)
     resp = []
     for measure in measures:
         resp.append({'pk': measure.pk, 'name':measure.name})
+
     return JsonResponse({'measures': resp, 'count': len(resp)})

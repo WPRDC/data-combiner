@@ -13,4 +13,5 @@ urlpatterns = [
     url(r'^submit/$',submit_combination_job, name='submit_job'),
     url(r'^resources/$',get_resources, name='get_resources'),
     url(r'^measures/$', get_measures, name='get_measures')
+
 ]

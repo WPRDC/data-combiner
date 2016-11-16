@@ -64,24 +64,20 @@
             </div>
             <form id="field-form" method="post" action="{% url "combiner:submit_job" %}">
                 {% csrf_token %}
-
                 <div class="row">
-                    <p class="meta-label">Select Fields to Combine With: </p>
                     <table>
-                        <tbody>
-                        {% for form in field_formset %}
-                            <tr>
-                                <td>{{ form.field }}</td>
-                                <td>{{ form.radius }}</td>
-                                <td><a class="delete-row" href="javascript:void(0)"><i class="material-icons w3-small">close</i></a>
-                                </td>
-                            </tr>
-                        {% endfor %}
+                        <tbody id="measure-table">
+                        <tr>
+                            <th>Dataset</th>
+                            <th>Field</th>
+                            <th>Measure</th>
+                        </tr>
+                        <!-- We'll add listing of measure to this section-->
                         </tbody>
                     </table>
-                    <!--Management -->
-                    {{ field_formset.management_form }}
-                    <input id="combine-submit" class="button" type="submit" value="Combine That Sh*t"/>
+                    <button class="button success" type="button" id="add-measure">Add Stuff</button>
+                    <br>
+                    <input id="combine-submit" class="button" type="submit" value="Let's Start Combinin'"/>
                 </div>
             </form>
         </div>
@@ -95,26 +91,70 @@
             <label for="select-resource">Data Set</label>
             <select name="resource" id="select-resource"> </select>
 
-            <label for="select-field">Field</label>
-            <select name="field" id="select-field" style="display: none;"></select>
+            <div id="select-field-group" style="display: none;">
+                <label for="select-field">Field</label>
+                <select name="field" id="select-field"></select>
+            </div>
+            <div id="select-measure-group" style="display: none;">
+                <label for="select-measure">Measure</label>
+                <select name="measure" id="select-measure"></select>
+            </div>
+            <br>
+            <br>
+            <input class="button text-center" id="measure-submit" type="button" value="Add" data-close
+                   aria-label="Close modal"/>
 
-            <label for="select-measure">Measure</label>
-            <select name="measure" id="select-measure" style="display: none;"></select>
-
-            <div id="measure-settings"></div>
-
-            <label></label>
-
-
-            <button class="close-button" data-close aria-label="Close modal" type="button">
-                <span aria-hidden="true">&times;</span>
-            </button>
         </form>
+        <button class="close-button" data-close aria-label="Close modal" type="button">
+            <span aria-hidden="true">&times;</span>
+        </button>
     </div>
 
     <script>
+        var measure_count = 0;
+        var serial_value;
+        var r, f, m;
+
+        $('#add-measure').on('click', function () {
+            $('#measure-modal').foundation('open');
+
+        });
+
+        $('#measure-submit').on('click', function () {
+
+            // TODO: add validation
+
+            serial_value = $('#select-resource').val() + "-" + $('#select-field').val() + "-" + $('#select-measure').val();
+            r = $('#select-resource option:selected').text();
+            f = $('#select-field option:selected').text();
+            m = $('#select-measure option:selected').text();
+            console.log(serial_value);
+            console.log(r);
+            console.log(f);
+            console.log(m);
+
+            // add new data to submission form
+            $('<input>').attr({
+                type: 'hidden',
+                id: 'measure_val_' + measure_count,
+                name: 'measure_val_' + measure_count,
+                value: serial_value
+            }).appendTo($('#field-form'));
+
+            // make new entry line in table
+            $('#measure-table')
+                    .append($("<tr>").html("<td>" + r + "</td><td>" + f + "</td><td>" + m + "</td>"));
+
+            // reset itself
+            $('#select-resource').val('1');
+            $('#select-field-group').hide();
+            $('#select-measure-group').hide();
+
+        });
 
         function addOptions(selection, data, val, text) {
+            selection.empty();
+
             for (var i = 0; i < data.length; i++) {
                 item = data[i];
                 selection.append(
@@ -123,21 +163,38 @@
                                 .text(item[text])
                 )
             }
-            selection.show();
+            selection.parent().show();
         }
 
         // Get list of available resources to start
         //
+        var $resourceSelect = $('#select-resource');
         $.get("{% url "combiner:get_resources" %}", function (data) {
             var resources = data.resources;
-            var $resourceSelect = $('#select-resource');
+
             $resourceSelect.append(
                     $('<option></option>')
                             .attr('value', 0)
                             .text("----SELECT A RESOURCE----")
             );
             addOptions($resourceSelect, resources, 'pk', 'name');
+
+            $.get("{% url "combiner:get_fields" %}", {"resource": $('#select-resource').val()})
+                    .success(function (data) {
+                        if (data.fields.length) {
+                            addOptions($('#select-field'), data.fields, 'pk', 'name');
+                        }
+
+                        $.get("{% url "combiner:get_measures" %}", {"field": $('#select-field').val()})
+                                .success(function (data) {
+                                    console.log(data);
+                                    if (data.measures.length) {
+                                        addOptions($('#select-measure'), data.measures, 'pk', 'name');
+                                    }
+                                });
+                    });
         });
+
 
         // When resource is selected, get list of fields available for that resource
         //
@@ -148,6 +205,14 @@
                         if (data.fields.length) {
                             addOptions($('#select-field'), data.fields, 'pk', 'name');
                         }
+
+                        $.get("{% url "combiner:get_measures" %}", {"field": $('#select-field').val()})
+                                .success(function (data) {
+                                    console.log(data);
+                                    if (data.measures.length) {
+                                        addOptions($('#select-measure'), data.measures, 'pk', 'name');
+                                    }
+                                });
                     });
         });
 
@@ -155,8 +220,9 @@
             var field_id = $(this).val();
             $.get("{% url "combiner:get_measures" %}", {"field": field_id})
                     .success(function (data) {
-                        if (data.fields.length) {
-                            addOptions($('#select-measure'), data.fields, 'pk', 'name');
+                        console.log(data);
+                        if (data.measures.length) {
+                            addOptions($('#select-measure'), data.measures, 'pk', 'name');
                         }
                     });
         });
@@ -278,7 +344,6 @@
 
         $(function () {
             $('#file-upload').submit(upload);
-            $('#field-form').find('tbody tr').formset({'deleteText': ''});
         });
 
 
