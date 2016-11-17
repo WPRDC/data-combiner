@@ -2,7 +2,7 @@ requests
 click==6.6
 click-plugins==1.0.3
 cligj==0.4.0
-Django==1.9.8
+Django
 Fiona==1.7.0
 GDAL==2.0.2
 munch==2.0.4

@@ -144,7 +144,7 @@ def submit_combination_job(request):
 
 
         # Start celery job to combine the data
-        combiner = combine_data(input_file_id, ckan_field_ids, radii, measures)
+        combiner = combine_data.delay(input_file_id, ckan_field_ids, radii, measures)
         return JsonResponse({'combiner_id': combiner.id})
 
     else:
@@ -228,3 +228,4 @@ def get_measures(request):
         resp.append({'pk': measure.pk, 'name':measure.name})
 
     return JsonResponse({'measures': resp, 'count': len(resp)})
+
