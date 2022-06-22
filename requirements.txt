@@ -6,6 +6,6 @@ Django==1.9.8
 Fiona==1.7.0
 GDAL==2.0.2
 munch==2.0.4
-numpy==1.11.1+mkl
+numpy>=1.22
 Shapely==1.5.16
 six==1.10.0
